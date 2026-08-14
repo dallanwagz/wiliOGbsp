@@ -429,6 +429,7 @@ add_library(fwog_display_bsp STATIC
     display_cpu/platform/board.c
     display_cpu/lcd/st7789.c
     display_cpu/lcd/lcd_text.c
+    display_cpu/ui/fwog_ui.c
     display_cpu/io_expander/pcal6416.c
     display_cpu/io_expander/ioexp_link.c
     display_cpu/input/buttons.c

@@ -121,6 +121,7 @@ add_subdirectory(apps/lcd)
 add_subdirectory(apps/bl)
 
 add_subdirectory(apps/template)
+add_subdirectory(apps/deckdemo)
 add_subdirectory(apps/smoke)
 add_subdirectory(apps/bench)
 add_subdirectory(apps/ogvegas)
