@@ -284,7 +284,7 @@ static void draw_content(void) {
             g_progress_owns_leds = true;
             unsigned lit = pct * 7u / 100u;
             for (unsigned i = 0; i < 7; ++i)
-                ws2812_set_color(i, i < lit ? 30 : 0, i < lit ? 8 : 0, 0);
+                ws2812_set_color(i, 0, i < lit ? 30 : 0, 0);   /* green progress ring */
         }
         break;
     }
