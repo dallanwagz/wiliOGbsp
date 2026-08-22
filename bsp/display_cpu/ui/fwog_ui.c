@@ -214,6 +214,53 @@ static void draw_content(void) {
 
     switch (s->kind) {
     case FWOG_UI_KIND_LIST: {
+        const char *const *subs = s->u.list.subs;
+        if (subs) {
+            /* Master-detail ("blade") layout for the launcher: a name list in
+             * the left column, and the ENTIRE right half a detail panel for the
+             * highlighted app -- its name as a header over a big word-wrapped
+             * description. Moving the cursor (GRAY/YELLOW) updates the panel. */
+            const uint16_t split = 148u;                 /* left name-column width */
+            const uint16_t px = (uint16_t)(split + 8u);  /* detail text x */
+            const unsigned pcols = (unsigned)((ST7789_W - px - 6) / 12u);  /* scale-2 glyph = 12 px */
+            /* LEFT: the name list, standard single-line rows. */
+            if (n->cursor < n->top) n->top = n->cursor;
+            if (n->cursor >= n->top + LIST_ROWS) n->top = n->cursor - LIST_ROWS + 1;
+            for (unsigned r = 0; r < LIST_ROWS && n->top + r < s->u.list.count; ++r) {
+                unsigned idx = n->top + r;
+                bool cur = (idx == n->cursor);
+                uint16_t y = (uint16_t)(BAND_CONTENT_Y + 2 + r * LIST_ROW_H);
+                if (cur) st7789_fill_rect(0, y, split, LIST_ROW_H, c_accent);
+                lcd_text_draw(8, (uint16_t)(y + 4), s->u.list.rows[idx], 2,
+                              cur ? C_BG : C_FG, cur ? c_accent : C_BG);
+            }
+            if (s->u.list.count > LIST_ROWS) {   /* scroll tick, left column edge */
+                unsigned h = BAND_CONTENT_H * LIST_ROWS / s->u.list.count;
+                unsigned y0 = BAND_CONTENT_Y + BAND_CONTENT_H * n->top / s->u.list.count;
+                st7789_fill_rect((uint16_t)(split - 4), (uint16_t)y0, 2, (uint16_t)(h ? h : 1), c_muted);
+            }
+            /* Divider. */
+            st7789_fill_rect(split, BAND_CONTENT_Y, 1, BAND_CONTENT_H, c_muted);
+            /* RIGHT: the selected app's detail. */
+            lcd_text_draw(px, (uint16_t)(BAND_CONTENT_Y + 8), s->u.list.rows[n->cursor], 2, c_accent, C_BG);
+            const char *p = subs[n->cursor] ? subs[n->cursor] : "";
+            uint16_t ly = (uint16_t)(BAND_CONTENT_Y + 36);
+            for (unsigned line = 0; line < 8u && *p; ++line) {
+                unsigned take = 0, lastsp = 0;
+                while (p[take] && take < pcols) { if (p[take] == ' ') lastsp = take; ++take; }
+                unsigned cut = (p[take] && lastsp) ? lastsp : take;   /* break on a space if mid-word */
+                char buf[24];
+                unsigned c = cut < sizeof buf - 1 ? cut : (unsigned)(sizeof buf - 1);
+                for (unsigned k = 0; k < c; ++k) buf[k] = p[k];
+                buf[c] = '\0';
+                lcd_text_draw(px, ly, buf, 2, C_FG, C_BG);   /* big, readable */
+                ly = (uint16_t)(ly + 20);
+                p += cut;
+                while (*p == ' ') ++p;
+            }
+            break;
+        }
+        /* Plain single-line list (unchanged). */
         if (n->cursor < n->top) n->top = n->cursor;
         if (n->cursor >= n->top + LIST_ROWS) n->top = n->cursor - LIST_ROWS + 1;
         for (unsigned r = 0; r < LIST_ROWS && n->top + r < s->u.list.count; ++r) {
@@ -223,7 +270,6 @@ static void draw_content(void) {
             lcd_text_draw(8, (uint16_t)(y + 4), s->u.list.rows[n->top + r], 2,
                           cur_row ? C_BG : C_FG, cur_row ? c_accent : C_BG);
         }
-        /* Scroll ticks in the rightmost 6 px. */
         if (s->u.list.count > LIST_ROWS) {
             unsigned h = BAND_CONTENT_H * LIST_ROWS / s->u.list.count;
             unsigned y0 = BAND_CONTENT_Y + BAND_CONTENT_H * n->top / s->u.list.count;
@@ -583,6 +629,14 @@ static void engine(const fwog_power_t *p, uint32_t now) {
             g_ov_cursor = 0;
             g_dirty_content = true;
             g_dirty_hints = true;
+        }
+        /* Declutter the power-off: the System Card (Resume/Restart) opens at
+         * 1.5 s, but once the 6 s power countdown is clearly underway (>=3 s)
+         * the intent is plainly "power off" -- drop the card so only the red
+         * POWER OFF bar shows. g_red_consumed stays set, so it won't reopen. */
+        if (p->armed && p->progress >= 50u && g_overlay == OV_SYSCARD) {
+            g_overlay = OV_NONE;
+            g_dirty_all = true;
         }
         if ((b->released & bit) && !g_red_consumed) red_press();
         if (b->released & bit) g_red_consumed = false;

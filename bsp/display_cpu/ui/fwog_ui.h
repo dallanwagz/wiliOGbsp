@@ -70,7 +70,8 @@ typedef struct fwog_ui_screen {
     fwog_ui_verb_t green_long;         /* declared GREEN long (optional)    */
     union {
         struct { const char *const *rows; unsigned count;
-                 void (*on_select)(unsigned idx); } list;
+                 void (*on_select)(unsigned idx);
+                 const char *const *subs;   /* optional per-row subtitle; NULL = single-line rows */ } list;
         struct { const char *const *pages; unsigned count; } detail;
         struct { const fwog_ui_field_t *fields; unsigned count;
                  void (*on_commit)(void); } form;
@@ -85,6 +86,12 @@ typedef struct fwog_ui_screen {
 #define FWOG_UI_LIST(t, r, n, sel, ...) \
     { .kind = FWOG_UI_KIND_LIST, .title = (t), \
       .u.list = { .rows = (r), .count = (n), .on_select = (sel) }, __VA_ARGS__ }
+/* Same, plus a parallel subtitle array `d` -- rows render two-line
+ * (name over a dimmed description). Used by the launcher; other lists pass
+ * no subs and stay single-line. */
+#define FWOG_UI_LIST_D(t, r, d, n, sel, ...) \
+    { .kind = FWOG_UI_KIND_LIST, .title = (t), \
+      .u.list = { .rows = (r), .count = (n), .on_select = (sel), .subs = (d) }, __VA_ARGS__ }
 #define FWOG_UI_DETAIL(t, p, n, ...) \
     { .kind = FWOG_UI_KIND_DETAIL, .title = (t), \
       .u.detail = { .pages = (p), .count = (n) }, __VA_ARGS__ }
