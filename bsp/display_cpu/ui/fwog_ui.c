@@ -84,6 +84,7 @@ static uint32_t g_toast_until;
 
 static void (*g_on_tick)(uint32_t);
 static void (*g_on_exit)(void);
+static void (*g_on_home)(void);   /* RED at root -> here (launcher), if set */
 static struct { const char *label; void (*fn)(void); } g_menu[MENU_MAX];
 static unsigned g_menu_count;
 
@@ -487,6 +488,10 @@ static void red_press(void) {
     case OV_NONE: break;
     }
     if (g_depth > 1) { fwog_ui_pop(); return; }
+    /* At the root of a sub-app (launcher model): RED goes HOME to the launcher
+     * instead of exiting the whole binary. The launcher itself sets no home
+     * hook, so RED there still raises the exit card. */
+    if (g_on_home) { g_on_home(); return; }
     g_overlay = OV_EXIT;
     g_ov_cursor = 0;
     g_dirty_content = true;
@@ -613,13 +618,32 @@ void fwog_ui_menu_add(const char *label, void (*fn)(void)) {
     }
 }
 
-void fwog_ui_run(const char *app_name, const fwog_ui_screen_t *screens,
-                 unsigned count, unsigned root_id) {
+/* Point the framework at a screen table and reset the nav stack to its root.
+ * Shared by fwog_ui_run (initial app) and fwog_ui_set_app (launcher swap). */
+static void set_app(const char *app_name, const fwog_ui_screen_t *screens,
+                    unsigned count, unsigned root_id) {
     g_app_name = app_name ? app_name : "";
     g_screens = screens;
     g_count = count;
+    g_overlay = OV_NONE;
     g_depth = 0;
     fwog_ui_push(root_id < count ? root_id : 0);
+    g_dirty_all = true;
+}
+
+/* Swap the active app at runtime (launcher model). Each app keeps its OWN
+ * 0-based screen ids -- the table pointer is what changes -- so apps compose
+ * without renumbering. Set the app's on_tick / on_home around this call. */
+void fwog_ui_set_app(const char *app_name, const fwog_ui_screen_t *screens,
+                     unsigned count, unsigned root_id) {
+    set_app(app_name, screens, count, root_id);
+}
+
+void fwog_ui_on_home(void (*fn)(void)) { g_on_home = fn; }
+
+void fwog_ui_run(const char *app_name, const fwog_ui_screen_t *screens,
+                 unsigned count, unsigned root_id) {
+    set_app(app_name, screens, count, root_id);
 
     c_muted = st7789_rgb565(90, 82, 80);
     c_chrome = st7789_rgb565(34, 28, 27);

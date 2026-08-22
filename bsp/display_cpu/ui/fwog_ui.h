@@ -128,4 +128,14 @@ void fwog_ui_on_tick(void (*fn)(uint32_t now_ms));   /* ~50 Hz              */
 void fwog_ui_on_exit(void (*save_state)(void));      /* before ANY exit     */
 void fwog_ui_menu_add(const char *label, void (*fn)(void)); /* System Card  */
 
+/* ---- Launcher model (multiple apps in one binary) ----
+ * Swap the active screen table at runtime; each app keeps its own 0-based
+ * screen ids. fwog_ui_on_home() sets what RED does at an app's root: a
+ * sub-app points it back to the launcher (which itself leaves it NULL, so RED
+ * there still raises the exit card). Set the app's on_tick/on_home around the
+ * swap. See og-deck's evilog launcher for the pattern. */
+void fwog_ui_set_app(const char *app_name, const fwog_ui_screen_t *screens,
+                     unsigned count, unsigned root_id);
+void fwog_ui_on_home(void (*fn)(void));
+
 #endif /* FWOG_UI_H */
