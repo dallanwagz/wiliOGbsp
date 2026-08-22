@@ -15,6 +15,7 @@ See bsp/common/uf2_info.h for what the record is for and why it is scanned
 rather than pointed at.
 """
 import argparse
+import os
 import struct
 import zlib
 
@@ -137,6 +138,10 @@ def main():
 
     rec = build_record(a.cpu, a.kind, a.version, a.name, a.description,
                        a.build, a.build_ts)
+    # CMake's add_custom_command declares --out but does not create its parent
+    # dir; on a fresh (never-built) tree it does not exist yet. Create it so a
+    # clean clone builds without a stale build/ dir priming the path.
+    os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w") as f:
         f.write(emit(rec))
 
