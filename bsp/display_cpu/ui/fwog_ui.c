@@ -352,12 +352,28 @@ static void draw_toast(uint32_t now) {
  * 6 s cutoff; this only paints the on-screen countdown so the hold is
  * legible. Drawn last, over everything — a fullscreen canvas included. */
 static void draw_power_banner(const fwog_power_t *p) {
-    if (!p->armed || p->progress == 0) return;
-    st7789_fill_rect(30, 100, 260, 44, btn565(FWOG_BTN_RED));
-    char msg[48];
-    snprintf(msg, sizeof msg, "POWER OFF %u%%  release=stay", p->progress);
-    lcd_text_draw(38, 116, msg, 1, C_FG, btn565(FWOG_BTN_RED));
-    g_dirty_content = true; /* repaint underneath once the hold ends */
+    static bool shown;      /* was the box on screen last frame? */
+    if (p->armed && p->progress > 0) {
+        /* Paint the box straight over whatever's underneath -- do NOT force a
+         * content repaint. The old code set g_dirty_content every frame, which
+         * repainted the base screen (and any open overlay) at full rate under
+         * the box: the underlying window flashed through on each frame while
+         * the box redrew on top -- the "shaky, several windows at once" bug.
+         * Redrawing just this fixed box each frame is flicker-free because
+         * nothing under it moves; only the %% text changes. */
+        st7789_fill_rect(30, 100, 260, 44, btn565(FWOG_BTN_RED));
+        char msg[48];
+        snprintf(msg, sizeof msg, "POWER OFF %u%%  release=stay", p->progress);
+        lcd_text_draw(38, 114, msg, 1, C_FG, btn565(FWOG_BTN_RED));
+        /* Say how to come back: waking is a GRAY hold (or USB) -- see
+         * power/ship_mode.h. Shown here because once the board is dark there is
+         * no screen left to tell them. */
+        lcd_text_draw(38, 128, "hold GRAY (or USB) to wake", 1, C_FG, btn565(FWOG_BTN_RED));
+        shown = true;
+    } else if (shown) {
+        g_dirty_content = true; /* hold ended: repaint underneath ONCE to wipe the box */
+        shown = false;
+    }
 }
 
 /* ---- Actions ---- */
