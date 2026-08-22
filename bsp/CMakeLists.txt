@@ -664,3 +664,66 @@ set_source_files_properties(
     main_cpu/fs/fwog_fs.c
     main_cpu/fs/fs_flash_disk.c
     PROPERTIES COMPILE_OPTIONS "${FWOG_WARN_FLAGS}")
+
+# --- ESP32-C6 on-device flasher (optional) -----------------------------------
+#
+# fwog_c6flash lets a MAIN app program an attached Bottlenose C6 over UART,
+# host-free, from images baked into MAIN flash. Kept SEPARATE from
+# fwog_main_bsp (opt-in, size-visible) exactly like fwog_main_fs above: an app
+# that does not flash the C6 pays nothing. The DECK UI half is fwog_c6flash_ui.
+#
+# The ESP ROM download protocol is Espressif's esp-serial-flasher (a submodule
+# under third_party/, pinned v2.0.0). We build it with its USER_DEFINED port --
+# our port (fwog_c6flash.c) drives the C6's FPGA-routed EN/IO9 via
+# fwog_io_pin_drive, which the library's stock pico port cannot reach.
+set(FWOG_C6_FLASHER_DIR "${CMAKE_CURRENT_LIST_DIR}/../third_party/esp-serial-flasher"
+    CACHE PATH "esp-serial-flasher checkout for the C6 flasher")
+if(EXISTS "${FWOG_C6_FLASHER_DIR}/CMakeLists.txt" AND NOT TARGET flasher)
+    set(PORT USER_DEFINED CACHE STRING "esp-serial-flasher port" FORCE)
+    add_subdirectory(${FWOG_C6_FLASHER_DIR} ${CMAKE_BINARY_DIR}/esp-serial-flasher)
+    target_link_libraries(flasher PUBLIC pico_stdlib)
+endif()
+
+if(TARGET flasher)
+    add_library(fwog_c6flash STATIC main_cpu/c6flash/fwog_c6flash.c)
+    target_compile_options(fwog_c6flash PRIVATE ${FWOG_WARN_FLAGS})
+    target_include_directories(fwog_c6flash PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/main_cpu)
+    target_link_libraries(fwog_c6flash PUBLIC fwog_main_bsp flasher pico_stdlib)
+
+    # DECK UI half (chooser + progress + status parser). Links the display BSP.
+    add_library(fwog_c6flash_ui STATIC display_cpu/ui/fwog_c6flash_ui.c)
+    target_compile_options(fwog_c6flash_ui PRIVATE ${FWOG_WARN_FLAGS})
+    target_include_directories(fwog_c6flash_ui PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/display_cpu)
+    target_link_libraries(fwog_c6flash_ui PUBLIC fwog_display_bsp)
+endif()
+
+# fwog_embed_c6_catalog(MAIN_TARGET DISPLAY_TARGET MANIFEST_JSON)
+#
+# Bakes a catalog of C6 builds (tools/embed_c6_catalog.py reads MANIFEST_JSON):
+# the image bytes + a build table go into MAIN_TARGET, a metadata-only table
+# (names/descriptions the chooser renders) into DISPLAY_TARGET. One manifest,
+# two generated sides. Modeled on fwog_embed_display_image above.
+function(fwog_embed_c6_catalog MAIN_TARGET DISPLAY_TARGET MANIFEST_JSON)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(_dir "${CMAKE_BINARY_DIR}/c6_catalog_${MAIN_TARGET}")
+    set(_asm  "${_dir}/c6_catalog_images.S")
+    set(_main "${_dir}/c6_catalog_main.c")
+    set(_meta "${_dir}/c6_catalog_meta.c")
+    add_custom_command(
+        OUTPUT ${_asm} ${_main} ${_meta}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${_dir}
+        COMMAND ${Python3_EXECUTABLE} ${FWOG_TOOLS_DIR}/embed_c6_catalog.py
+                --manifest ${MANIFEST_JSON}
+                --out-asm ${_asm} --out-main ${_main} --out-meta ${_meta}
+        DEPENDS ${MANIFEST_JSON} ${FWOG_TOOLS_DIR}/embed_c6_catalog.py
+        COMMENT "Baking C6 catalog from ${MANIFEST_JSON}"
+        VERBATIM)
+    set_source_files_properties(${_asm} PROPERTIES LANGUAGE ASM GENERATED TRUE)
+    set_source_files_properties(${_main} ${_meta} PROPERTIES GENERATED TRUE)
+    target_sources(${MAIN_TARGET}    PRIVATE ${_asm} ${_main})
+    target_sources(${DISPLAY_TARGET} PRIVATE ${_meta})
+endfunction()
