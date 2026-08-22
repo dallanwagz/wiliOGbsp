@@ -178,17 +178,36 @@ bool fwog_c6flash_run(const fwog_c6flash_cfg_t *cfg,
     }
     uart_set_baudrate(cfg->uart, C6_SYNC_BAUD);
 
+    /* Nudge a running C6 into download mode over the wire -- no BOOT/RESET
+     * buttons. If it is running firmware with the DLMODE verb (see the C6
+     * app), it sets its LP_AON force-download bit and software-resets into the
+     * ROM download loader. Harmless to a C6 already hand-armed in download:
+     * the ROM tolerates pre-sync bytes, and we flush before connecting. */
+    statusf(cfg, "S:C6 arming...");
+    static const char dl[] = "DLMODE\n";
+    for (unsigned i = 0; i < sizeof dl - 1; i++) uart_putc_raw(cfg->uart, dl[i]);
+    for (int i = 0; i < 12; i++) { board_watchdog_kick(); sleep_ms(100); }   /* let it reboot */
+    while (uart_is_readable(cfg->uart)) (void)uart_getc(cfg->uart);          /* flush boot chatter */
+
     esp_loader_connect_args_t cargs = ESP_LOADER_CONNECT_DEFAULT();
     esp_loader_error_t ce = esp_loader_connect(&loader, &cargs);
     if (ce != ESP_LOADER_SUCCESS) {
-        statusf(cfg, "S:C6 ERR connect rc%d (hold BOOT+tap RESET)", (int)ce); goto done;
+        statusf(cfg, "S:C6 ERR connect rc%d (arm: hold BOOT+tap RESET)", (int)ce); goto done;
     }
 
     uint32_t written = 0;
     for (int i = 0; i < 3; i++)
         if (!flash_one(cfg, &loader, &build->img[i], k_piece[i], &written, total)) goto done;
 
-    esp_loader_reset_target(&loader);
+    /* Clear the C6's persist force-download bit (LP_AON_SYS_CFG_REG bit 30)
+     * so it boots the new app on its next reset instead of looping back into
+     * download. A power/CHIP_PU reset would clear it too, but do not rely on
+     * that. The app also clears it early in app_main as a second guarantee. */
+    { uint32_t v;
+      if (esp_loader_read_register(&loader, 0x600B1034u, &v) == ESP_LOADER_SUCCESS)
+          (void)esp_loader_write_register(&loader, 0x600B1034u, v & ~(1u << 30)); }
+
+    esp_loader_reset_target(&loader);   /* EN pulse; a no-op if EN is unwired */
     statusf(cfg, "S:C6 done");
     ok = true;
 
