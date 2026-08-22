@@ -27,6 +27,13 @@ void fwog_c6flash_ui_init(const fwog_c6_meta_t *builds, unsigned count,
 void fwog_c6flash_chooser_draw(bool full);
 void fwog_c6flash_chooser_btn(fwog_btn_id_t b, bool long_press);
 
+/* PREP screen: FWOG_UI_CANVAS(title, fwog_c6flash_prep_draw, <your btn>).
+ * Shown between the chooser and the flash: the C6 must be in download mode when
+ * the flash starts, so this tells the operator to hand-arm it (hold BOOT, tap
+ * RESET, release BOOT) and press GREEN to go. The app wires GREEN in its own
+ * on_btn (it is the app that sends the flash command + opens the progress). */
+void fwog_c6flash_prep_draw(bool full);
+
 /* PROGRESS screen: FWOG_UI_CANVAS(title, fwog_c6flash_progress_draw, NULL).
  * Call fwog_c6flash_progress_reset() when (re)entering it. */
 void fwog_c6flash_progress_draw(bool full);

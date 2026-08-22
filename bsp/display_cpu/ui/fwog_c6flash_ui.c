@@ -100,6 +100,19 @@ void fwog_c6flash_chooser_btn(fwog_btn_id_t b, bool long_press) {
     }
 }
 
+void fwog_c6flash_prep_draw(bool full) {
+    (void)full;
+    st7789_fill_rect(0, 20, ST7789_W, ST7789_H - 20, C_BG);
+    lcd_text_draw(10, 28, "ARM THE C6", 2, C_YELLOW, C_BG);
+    lcd_text_draw(6,  58, "On the Bottlenose:", 1, C_FG, C_BG);
+    lcd_text_draw(6,  76, "1. HOLD the BOOT button", 1, C_FG, C_BG);
+    lcd_text_draw(6,  92, "2. TAP  the RESET button", 1, C_FG, C_BG);
+    lcd_text_draw(6, 108, "3. RELEASE BOOT", 1, C_FG, C_BG);
+    lcd_text_draw(6, 140, "It's now in download mode.", 1, C_GRAY, C_BG);
+    lcd_text_draw(10, 180, "GREEN = flash", 2, C_GREEN, C_BG);
+    lcd_text_draw(10, 204, "RED = cancel", 1, C_GRAY, C_BG);
+}
+
 void fwog_c6flash_progress_reset(void) { s_pct = 0; s_done = 0; s_total = 0; s_img[0] = '\0'; }
 
 unsigned fwog_c6flash_progress_pct(void) { return s_pct; }
