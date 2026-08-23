@@ -1,4 +1,9 @@
 #include "lcd/st7789.h"
+#include "fwog_draw_tap.h"
+
+/* Screen-mirror draw-tap seam (NULL = not mirroring; one skipped branch). */
+fwog_tap_fill_fn fwog_tap_fill = 0;
+fwog_tap_text_fn fwog_tap_text = 0;
 
 uint32_t st7789_actual_spi_hz(uint32_t clk_hz, uint32_t want_hz) {
     /* Replicates SDK spi_set_baudrate(): CPSDVSR is an even 2..254 and SCR
@@ -360,6 +365,7 @@ void st7789_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
     if (!st7789_ready()) return;
     st7789_dma_wait();
     if (!st7789_clip_rect(x, y, &w, &h)) return;
+    if (fwog_tap_fill) fwog_tap_fill(x, y, w, h, color);  /* mirror: clipped pixels */
 
     /* One window for the whole rect. The legacy clearScreen() issued 2400
        windowed commands to paint the same pixels. */

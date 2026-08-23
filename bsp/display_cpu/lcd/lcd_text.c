@@ -1,4 +1,5 @@
 #include "lcd/lcd_text.h"
+#include "fwog_draw_tap.h"
 
 /* 6x8 column-major font, ASCII 0x20-0x7E, ported verbatim from
  * rmpLib/st7789.cpp's fontdata[]. Each byte is one column; bit N is
@@ -171,6 +172,7 @@ static void draw_glyph(uint16_t x, uint16_t y, char c, unsigned scale,
 void lcd_text_draw(uint16_t x, uint16_t y, const char *str, unsigned scale,
                    uint16_t fg, uint16_t bg) {
     if (!str || scale == 0u) return;
+    if (fwog_tap_text) fwog_tap_text(x, y, str, scale, fg, bg);  /* mirror */
     const unsigned adv = LCD_GLYPH_W * scale;
     for (unsigned i = 0u; str[i]; i++) {
         const uint32_t gx = (uint32_t)x + (uint32_t)i * adv;

@@ -678,6 +678,7 @@ void fwog_ui_dialog(const char *question, void (*on_yes)(void)) {
 }
 
 void fwog_ui_on_tick(void (*fn)(uint32_t)) { g_on_tick = fn; }
+void fwog_ui_dirty_all(void) { g_dirty_all = true; }
 void fwog_ui_on_exit(void (*fn)(void)) { g_on_exit = fn; }
 
 void fwog_ui_menu_add(const char *label, void (*fn)(void)) {

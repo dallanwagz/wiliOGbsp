@@ -132,6 +132,7 @@ void fwog_ui_toast(const char *msg);          /* 2 s banner above the chips */
 void fwog_ui_dialog(const char *question, void (*on_yes)(void));
 
 void fwog_ui_on_tick(void (*fn)(uint32_t now_ms));   /* ~50 Hz              */
+void fwog_ui_dirty_all(void);                 /* force full repaint (mirror) */
 void fwog_ui_on_exit(void (*save_state)(void));      /* before ANY exit     */
 void fwog_ui_menu_add(const char *label, void (*fn)(void)); /* System Card  */
 
